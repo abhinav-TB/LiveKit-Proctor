@@ -3,12 +3,14 @@ import { useRouter } from 'next/router';
 import React, { ReactElement, useState } from 'react';
 import styles from '../styles/Home.module.css';
 import { encodePassphrase, generateRoomId, randomString } from '../lib/client-utils';
+import { Head } from 'next/document';
 
 interface TabsProps {
   children: ReactElement[];
   selectedIndex?: number;
   onTabSelected?: (index: number) => void;
 }
+
 
 function Tabs(props: TabsProps) {
   const activeIndex = props.selectedIndex ?? 0;

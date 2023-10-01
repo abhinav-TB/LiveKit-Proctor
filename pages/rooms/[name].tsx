@@ -16,10 +16,12 @@ import {
   VideoPresets,
 } from 'livekit-client';
 
+
+  import { saveAs } from 'file-saver';
 import type { NextPage } from 'next';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-import { useMemo, useState } from 'react';
+import { use, useMemo, useState,useEffect } from 'react';
 import { DebugMode } from '../../lib/Debug';
 import {
   decodePassphrase,
@@ -28,6 +30,10 @@ import {
   useServerUrl,
 } from '../../lib/client-utils';
 import dynamic from 'next/dynamic';
+import * as tf from '@tensorflow/tfjs';
+import { FaceDetection } from '@mediapipe/face_detection';
+
+
 
 const PreJoinNoSSR = dynamic(
   async () => {
@@ -50,6 +56,10 @@ const Home: NextPage = () => {
     }
     setPreJoinChoices(values);
   }
+  
+
+
+  
   return (
     <>
       <Head>
@@ -156,8 +166,85 @@ const ActiveRoom = ({ roomName, userChoices, onLeave }: ActiveRoomProps) => {
     };
   }, []);
 
+  const [screenshot, setScreenshot] = useState<string | null>(null);
+
+function takeScreenshot() {
+  const videoTrack = Array.from(room.localParticipant.videoTracks.values())[0];
+  console.log('videoTrack', videoTrack.track?.mediaStreamTrack)
+  if (videoTrack && videoTrack.dimensions) {
+    const tracks = videoTrack.track ? [videoTrack.track] : [];
+    const mediaStream = new MediaStream(tracks);
+    const video = document.createElement('video');
+    video.srcObject = mediaStream;
+    video.play();
+    document.body.appendChild(video);
+  } else {
+    alert('No video track available');
+  }
+}
+
+
+
+  const captureFrames = async () => {
+    const videos = document.querySelectorAll('video');
+    // const data = [];
+
+    for (let i = 0; i < videos.length; i++) {
+      const video = videos[i];
+      const stream = video.captureStream();
+      const track = stream.getVideoTracks()[0];
+      const imageCapture = new ImageCapture(track);
+
+      const blob = await imageCapture.takePhoto();
+      const formData = new FormData();
+      formData.append('image_file', blob);
+
+      const response = await fetch('https://90b1-24-136-3-71.ngrok.io/detect_faces', {
+        method: 'POST',
+        body: formData
+      });
+      
+      console.log('response', response)
+      const result = await response.json();
+      const numFaces = result.num_faces;
+      
+      if (numFaces > 0) {
+        console.log('face detected')
+      }
+      else {
+        console.log('no face detected')
+        alert('no face detected')
+      }
+      
+      // send the data to the server /save_number
+
+      // const data = { number: numFaces.toString() };
+      // const options = {
+      //   method: 'POST',
+      //   body: data
+      // };
+      // const response2 = await fetch('https://df79-24-136-3-71.ngrok.io/save_number', options);
+
+       
+    }
+
+  };
+
+  // Run downloadScreenshot every 2 seconds
+  // setInterval(downloadScreenshot, 2000);
+
+  const Home = () => {
+    // ...
+    // ...
+
+  // setInterval(captureFrames , 2000);
+
+  }
+
   return (
     <>
+    <head><script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface"></script></head>
       {liveKitUrl && (
         <LiveKitRoom
           room={room}
@@ -170,6 +257,10 @@ const ActiveRoom = ({ roomName, userChoices, onLeave }: ActiveRoomProps) => {
         >
           <VideoConference chatMessageFormatter={formatChatMessageLinks} />
           <DebugMode logLevel={LogLevel.info} />
+          <div style={{ position: 'absolute', top: 0, right: 0 }}>
+            <button onClick={()=>setInterval(captureFrames,2000)}>captureFrames</button>
+            {screenshot && <img src={screenshot} />}
+          </div>
         </LiveKitRoom>
       )}
     </>
